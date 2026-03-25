@@ -102,7 +102,13 @@ EOF
 
 prepare_storage() {
     rm -rf "${APP_ROOT}/storage/app" "${APP_ROOT}/storage/framework" "${APP_ROOT}/storage/logs"
-    mkdir -p /data/storage/app /data/storage/framework /data/storage/logs
+    mkdir -p \
+        /data/storage/app \
+        /data/storage/framework/cache/data \
+        /data/storage/framework/sessions \
+        /data/storage/framework/testing \
+        /data/storage/framework/views \
+        /data/storage/logs
     ln -sfn /data/storage/app "${APP_ROOT}/storage/app"
     ln -sfn /data/storage/framework "${APP_ROOT}/storage/framework"
     ln -sfn /data/storage/logs "${APP_ROOT}/storage/logs"
