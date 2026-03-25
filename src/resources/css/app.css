@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@theme {
+    --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --color-ink: #08131f;
+    --color-panel: #0f2233;
+    --color-panel-soft: #163248;
+    --color-sand: #f5f0e6;
+    --color-sky: #76d7ff;
+    --color-solar: #ffd166;
+    --color-mint: #89f0c5;
+    --color-alert: #ff8c69;
+}
+
+@layer base {
+    html {
+        background:
+            radial-gradient(circle at top left, rgb(118 215 255 / 0.22), transparent 30%),
+            radial-gradient(circle at top right, rgb(255 209 102 / 0.18), transparent 26%),
+            linear-gradient(180deg, #08131f 0%, #0d1c2d 52%, #13283b 100%);
+        color: var(--color-sand);
+    }
+
+    body {
+        min-height: 100vh;
+        color: var(--color-sand);
+    }
+}
+
+@layer components {
+    .glass-panel {
+        border: 1px solid rgb(255 255 255 / 0.1);
+        border-radius: 28px;
+        background: rgb(255 255 255 / 0.06);
+        box-shadow: 0 24px 80px rgb(3 9 16 / 0.38);
+        backdrop-filter: blur(14px);
+    }
+
+    .metric-card {
+        border: 1px solid rgb(255 255 255 / 0.1);
+        border-radius: 28px;
+        background: rgb(255 255 255 / 0.06);
+        box-shadow: 0 24px 80px rgb(3 9 16 / 0.38);
+        backdrop-filter: blur(14px);
+        padding: calc(var(--spacing) * 5);
+    }
+
+    .eyebrow {
+        font-size: 0.7rem;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: rgb(118 215 255 / 0.7);
+    }
+
+    .section-title {
+        font-size: var(--text-lg);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-sand);
+    }
+}

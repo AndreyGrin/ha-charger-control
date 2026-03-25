@@ -1,0 +1,112 @@
+configuration:
+  app_env:
+    name: App environment
+    description: Laravel application environment inside the add-on.
+  app_debug:
+    name: Debug mode
+    description: Enable verbose Laravel debug output.
+  app_timezone:
+    name: Time zone
+    description: Time zone used by the planner and dashboard.
+  log_level:
+    name: Log level
+    description: Laravel log verbosity.
+  charger_connection_webhook_secret:
+    name: Connection webhook secret
+    description: Shared secret used in the HA connection webhook URL.
+  home_assistant_url:
+    name: Home Assistant URL
+    description: Base Home Assistant URL used for API requests.
+  home_assistant_token:
+    name: Home Assistant token
+    description: Long-lived access token for Home Assistant.
+  home_assistant_timeout:
+    name: Home Assistant timeout
+    description: HTTP timeout in seconds.
+  charger_name:
+    name: Charger name
+    description: Display name for the charger in the dashboard.
+  charger_battery_capacity_kwh:
+    name: Battery capacity
+    description: Usable battery capacity in kWh.
+  charger_daily_min_soc_percent:
+    name: Daily minimum SoC
+    description: Required state of charge percentage by the deadline.
+  charger_target_soc_percent:
+    name: Target SoC
+    description: General target state of charge percentage.
+  charger_daily_min_deadline:
+    name: Daily minimum deadline
+    description: Time by which the daily minimum SoC must be reached.
+  charger_power_kw:
+    name: Charger power
+    description: Maximum charger power in kW.
+  charger_min_current_amps:
+    name: Minimum current
+    description: Minimum charger current in amps.
+  charger_max_current_amps:
+    name: Maximum current
+    description: Maximum charger current in amps.
+  charger_efficiency:
+    name: Charger efficiency
+    description: Charging efficiency ratio.
+  grid_day_rate_per_kwh:
+    name: Grid day rate
+    description: Day tariff price.
+  grid_night_rate_per_kwh:
+    name: Grid night rate
+    description: Night tariff price.
+  grid_weekend_rate_per_kwh:
+    name: Grid weekend rate
+    description: Weekend tariff price.
+  grid_prices_in_cents:
+    name: Grid prices in cents
+    description: Treat grid prices as cents per kWh.
+  grid_prices_include_vat:
+    name: Grid prices include VAT
+    description: Treat configured grid prices as already VAT-inclusive.
+  grid_vat_rate:
+    name: VAT rate
+    description: VAT multiplier for Nordpool and grid prices.
+  grid_day_rate_starts_at:
+    name: Day tariff starts
+    description: Start time for day tariff.
+  grid_night_rate_starts_at:
+    name: Night tariff starts
+    description: Start time for night tariff.
+  charger_switch_entity_id:
+    name: Charger switch entity
+    description: Home Assistant switch entity used to start and stop charging.
+  charger_max_current_entity_id:
+    name: Charger max current entity
+    description: Home Assistant number entity used to set charging current.
+  charger_energy_total_entity_id:
+    name: Charger energy meter entity
+    description: Home Assistant sensor with cumulative charger energy import.
+  vehicle_soc_entity_id:
+    name: Vehicle SoC entity
+    description: Home Assistant sensor that reports vehicle battery percentage.
+  nordpool_entity_id:
+    name: Nordpool entity
+    description: Home Assistant Nordpool entity with quarter-hour attributes.
+  solar_forecast_east_entity_id:
+    name: Solar forecast east
+    description: East array total solar forecast entity.
+  solar_forecast_west_entity_id:
+    name: Solar forecast west
+    description: West array total solar forecast entity.
+  solar_current_hour_east_entity_id:
+    name: Solar current hour east
+    description: East array current-hour solar estimate.
+  solar_current_hour_west_entity_id:
+    name: Solar current hour west
+    description: West array current-hour solar estimate.
+  solar_next_hour_east_entity_id:
+    name: Solar next hour east
+    description: East array next-hour solar estimate.
+  solar_next_hour_west_entity_id:
+    name: Solar next hour west
+    description: West array next-hour solar estimate.
+  house_load_entity_id:
+    name: House load entity
+    description: Optional house load sensor for future watchdog logic.
