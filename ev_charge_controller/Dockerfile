@@ -1,4 +1,28 @@
 ARG BUILD_FROM
+
+FROM composer:2 AS vendor
+
+WORKDIR /app
+
+COPY src/composer.json src/composer.lock ./
+RUN composer install \
+    --no-dev \
+    --prefer-dist \
+    --no-interaction \
+    --optimize-autoloader \
+    --ignore-platform-reqs \
+    --no-scripts
+
+FROM node:20-alpine AS frontend
+
+WORKDIR /app
+
+COPY src/package.json src/package-lock.json ./
+RUN npm ci
+
+COPY src ./
+RUN npm run build
+
 FROM ${BUILD_FROM}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -31,6 +55,8 @@ COPY nginx.conf /etc/nginx/http.d/default.conf
 COPY php-fpm-www.conf /etc/php83/php-fpm.d/www.conf
 COPY run.sh /run.sh
 COPY src /var/www/html
+COPY --from=vendor /app/vendor /var/www/html/vendor
+COPY --from=frontend /app/public/build /var/www/html/public/build
 
 RUN chmod a+x /run.sh \
     && mkdir -p /run/nginx /var/log/nginx /data/storage \

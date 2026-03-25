@@ -1,0 +1,10 @@
+.git
+.idea
+src/.env
+src/node_modules
+src/vendor
+src/storage/logs
+src/storage/framework/cache
+src/storage/framework/views
+src/storage/framework/sessions
+src/bootstrap/cache/*.php
