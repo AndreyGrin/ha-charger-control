@@ -56,3 +56,6 @@ This document defines the automated logic providers (Agents) responsible for mon
 2. **Process:** Logic determines if the current state violates safety or follows strategy.
 3. **Act:** Service calls are sent back to HA to toggle the `switch.c26634_charge_control`.
 4. **Log:** Every action is recorded in MariaDB for future analytics.
+
+## Changelog updates
+When a new version of the EV Charge Controller is prepared, the changelog is updated with the new version number and release datails.

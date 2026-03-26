@@ -14,6 +14,21 @@ configuration:
   charger_connection_webhook_secret:
     name: Connection webhook secret
     description: Shared secret used in the HA connection webhook URL.
+  db_host:
+    name: MariaDB host
+    description: Optional MariaDB host. Leave empty to use SQLite.
+  db_port:
+    name: MariaDB port
+    description: MariaDB port.
+  db_database:
+    name: MariaDB database
+    description: Optional MariaDB database name. Leave empty to use SQLite.
+  db_username:
+    name: MariaDB username
+    description: Optional MariaDB username. Leave empty to use SQLite.
+  db_password:
+    name: MariaDB password
+    description: Optional MariaDB password.
   home_assistant_url:
     name: Home Assistant URL
     description: Base Home Assistant URL used for API requests.

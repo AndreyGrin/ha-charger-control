@@ -42,6 +42,7 @@ RUN apk add --no-cache \
     php84-openssl \
     php84-pcntl \
     php84-pdo \
+    php84-pdo_mysql \
     php84-pdo_sqlite \
     php84-phar \
     php84-session \

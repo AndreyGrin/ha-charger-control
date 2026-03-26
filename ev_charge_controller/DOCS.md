@@ -11,6 +11,20 @@ This add-on runs the Laravel EV charging planner inside Home Assistant ingress.
 - Tracks executed energy from the charger energy register
 - Shows planning, execution, and history in the built-in dashboard
 
+## Database
+
+By default, the add-on uses SQLite stored under `/data`.
+
+If you fill in the MariaDB connection settings in the add-on configuration:
+
+- `db_host`
+- `db_port`
+- `db_database`
+- `db_username`
+- `db_password`
+
+the add-on will use MariaDB instead of SQLite on the next restart.
+
 ## Install
 
 1. Copy this repository into your Home Assistant custom add-ons directory, or add it as a local custom add-on source.

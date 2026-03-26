@@ -20,11 +20,29 @@ option() {
 write_env() {
     mkdir -p /data "${APP_ROOT}/storage" "${APP_ROOT}/bootstrap/cache"
 
+    local db_host
+    local db_port
+    local db_database
+    local db_username
+    local db_password
+    local db_connection
+
+    db_host="$(option 'db_host')"
+    db_port="$(option 'db_port')"
+    db_database="$(option 'db_database')"
+    db_username="$(option 'db_username')"
+    db_password="$(option 'db_password')"
+
     if [[ ! -f "${APP_KEY_FILE}" ]]; then
         php84 -r 'echo "base64:".base64_encode(random_bytes(32));' > "${APP_KEY_FILE}"
     fi
 
-    touch "${DB_FILE}"
+    if [[ -n "${db_host}" && -n "${db_database}" && -n "${db_username}" ]]; then
+        db_connection="mariadb"
+    else
+        db_connection="sqlite"
+        touch "${DB_FILE}"
+    fi
 
     cat > "${APP_ENV_FILE}" <<EOF
 APP_NAME="EV Charge Controller"
@@ -45,8 +63,12 @@ LOG_STACK=single
 LOG_LEVEL=$(option 'log_level')
 CHARGER_CONNECTION_WEBHOOK_SECRET=$(option 'charger_connection_webhook_secret')
 
-DB_CONNECTION=sqlite
-DB_DATABASE=${DB_FILE}
+DB_CONNECTION=${db_connection}
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_DATABASE=$( [[ "${db_connection}" == "sqlite" ]] && echo "${DB_FILE}" || echo "${db_database}" )
+DB_USERNAME=${db_username}
+DB_PASSWORD=${db_password}
 
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
@@ -112,6 +134,10 @@ prepare_storage() {
     ln -sfn /data/storage/app "${APP_ROOT}/storage/app"
     ln -sfn /data/storage/framework "${APP_ROOT}/storage/framework"
     ln -sfn /data/storage/logs "${APP_ROOT}/storage/logs"
+    if [[ -f "${DB_FILE}" ]]; then
+        chown nginx:nginx "${DB_FILE}"
+        chmod 664 "${DB_FILE}"
+    fi
     chown -R nginx:nginx /data/storage "${APP_ROOT}/bootstrap/cache"
     chmod -R 775 /data/storage "${APP_ROOT}/bootstrap/cache"
 }

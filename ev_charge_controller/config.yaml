@@ -1,6 +1,6 @@
 name: "EV Charge Controller"
 description: "Laravel-based Home Assistant add-on for Nordpool, solar-aware EV charging control."
-version: "0.1.6"
+version: "0.1.7"
 slug: "ev_charge_controller"
 init: false
 startup: application
@@ -18,6 +18,11 @@ options:
   app_timezone: Europe/Tallinn
   log_level: info
   charger_connection_webhook_secret: change-me
+  db_host: ""
+  db_port: 3306
+  db_database: ""
+  db_username: ""
+  db_password: ""
   home_assistant_url: "https://homeassistant.local"
   home_assistant_token: ""
   home_assistant_timeout: 10
@@ -56,6 +61,11 @@ schema:
   app_timezone: str
   log_level: str
   charger_connection_webhook_secret: password
+  db_host: "str?"
+  db_port: "int(1,65535)"
+  db_database: "str?"
+  db_username: "str?"
+  db_password: password
   home_assistant_url: url
   home_assistant_token: password
   home_assistant_timeout: "int(1,60)"
