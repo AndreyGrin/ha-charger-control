@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10
+- Document all supported artisan commands, parameters, and examples in the add-on documentation
+- Add one-off `--minimum-soc` and `--minimum-deadline` overrides to `app:evaluate-charging-strategy`
+- Add automated test coverage for the temporary minimum SoC and deadline override flow
+
 ## 0.1.9
 - Treat past unexecuted planned slots as missed in the dashboard instead of leaving them visually planned
 - Exclude stale past planned energy from the executed-vs-planned timeline

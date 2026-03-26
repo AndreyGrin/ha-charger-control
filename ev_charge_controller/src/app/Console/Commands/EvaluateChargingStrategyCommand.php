@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ChargingSetting;
 use App\Models\PriceForecast;
 use App\Services\ChargingPlanner;
 use App\Services\ChargingSettingsService;
@@ -15,7 +16,9 @@ class EvaluateChargingStrategyCommand extends Command
 {
     protected $signature = 'app:evaluate-charging-strategy
         {--horizon-minutes=720 : Planning horizon in minutes from now}
-        {--until= : Absolute end time today, for example 17:00}';
+        {--until= : Absolute end time today, for example 17:00}
+        {--minimum-soc= : Override the required minimum SoC percent for this run}
+        {--minimum-deadline= : Override the minimum SoC deadline time, for example 07:00}';
 
     protected $description = 'Build the next cheapest charging plan from tariffs, Nordpool prices, and solar surplus.';
 
@@ -34,6 +37,8 @@ class EvaluateChargingStrategyCommand extends Command
         } catch (Throwable $exception) {
             $this->warn(sprintf('Home Assistant sync skipped: %s', $exception->getMessage()));
         }
+
+        $settings = $this->applyOverrides($settings);
 
         try {
             $forecastImporter->importFromHomeAssistant($homeAssistant, $now);
@@ -81,5 +86,32 @@ class EvaluateChargingStrategyCommand extends Command
         $horizonMinutes = max(15, (int) $this->option('horizon-minutes'));
 
         return $now->addMinutes($horizonMinutes);
+    }
+
+    private function applyOverrides(ChargingSetting $settings): ChargingSetting
+    {
+        $minimumSoc = $this->option('minimum-soc');
+
+        if ($minimumSoc !== null && $minimumSoc !== '') {
+            $minimumSoc = (int) $minimumSoc;
+
+            if ($minimumSoc < 1 || $minimumSoc > 100) {
+                throw new \InvalidArgumentException('The --minimum-soc value must be between 1 and 100.');
+            }
+
+            $settings->daily_minimum_soc_percent = $minimumSoc;
+        }
+
+        $minimumDeadline = $this->option('minimum-deadline');
+
+        if (is_string($minimumDeadline) && $minimumDeadline !== '') {
+            if (! preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $minimumDeadline)) {
+                throw new \InvalidArgumentException('The --minimum-deadline value must be in HH:MM format.');
+            }
+
+            $settings->daily_minimum_deadline = $minimumDeadline;
+        }
+
+        return $settings;
     }
 }

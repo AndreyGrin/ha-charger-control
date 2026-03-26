@@ -175,3 +175,44 @@ test('strategy command imports home assistant forecasts before planning', functi
     expect(PriceForecast::query()->where('source', 'home-assistant')->count())->toBe(2);
     expect(ChargingPlan::query()->count())->toBe(1);
 });
+
+test('strategy command supports one-off minimum soc and deadline overrides', function () {
+    ChargingSetting::query()->create([
+        'charger_name' => 'planner-test',
+        'ha_charge_control_entity_id' => 'switch.c26634_charge_control',
+        'ha_maximum_current_entity_id' => 'number.c26634_maximum_current',
+        'battery_capacity_kwh' => 40,
+        'current_soc_percent' => 50,
+        'daily_minimum_soc_percent' => 55,
+        'target_soc_percent' => 80,
+        'daily_minimum_deadline' => '07:00',
+        'charger_power_kw' => 4,
+        'charger_min_current_amps' => 6,
+        'charger_max_current_amps' => 16,
+        'charger_efficiency' => 0.92,
+        'grid_day_rate_per_kwh' => 0.09,
+        'grid_night_rate_per_kwh' => 0.03,
+        'grid_weekend_rate_per_kwh' => 0.04,
+        'day_rate_starts_at' => '07:00',
+        'night_rate_starts_at' => '22:00',
+    ]);
+
+    collect(range(0, 7))->each(function (int $index): void {
+        PriceForecast::query()->create([
+            'starts_at' => now()->startOfHour()->addHours($index),
+            'ends_at' => now()->startOfHour()->addHours($index + 1),
+            'market_price_per_kwh' => 0.05 + ($index * 0.01),
+            'solar_surplus_kwh' => 0,
+            'source' => 'test',
+        ]);
+    });
+
+    $this->artisan('app:evaluate-charging-strategy --minimum-soc=70 --minimum-deadline=06:00')
+        ->assertSuccessful();
+
+    $plan = ChargingPlan::query()->latest('generated_at')->first();
+
+    expect($plan)->not->toBeNull();
+    expect((float) $plan->minimum_energy_kwh)->toBe(8.0);
+    expect($plan->deadline_at->format('H:i'))->toBe('06:00');
+});
