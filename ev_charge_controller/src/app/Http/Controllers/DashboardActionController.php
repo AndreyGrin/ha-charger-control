@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ChargingExecutionService;
 use App\Services\ChargingSettingsService;
 use App\Services\HomeAssistantService;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,7 @@ class DashboardActionController extends Controller
     public function __invoke(
         Request $request,
         string $action,
+        ChargingExecutionService $execution,
         ChargingSettingsService $chargingSettings,
         HomeAssistantService $homeAssistant,
     ): RedirectResponse|JsonResponse {
@@ -22,7 +24,8 @@ class DashboardActionController extends Controller
             $message = match ($action) {
                 'plan' => $this->runStrategy(),
                 'execute' => $this->runExecution(),
-                'stop' => $this->stopCharging($chargingSettings, $homeAssistant),
+                'reset' => $this->resetPlan(),
+                'stop' => $this->stopCharging($execution, $chargingSettings, $homeAssistant),
                 default => abort(404),
             };
 
@@ -68,13 +71,39 @@ class DashboardActionController extends Controller
         return $output !== '' ? $output : 'Execution command completed.';
     }
 
+    private function resetPlan(): string
+    {
+        Artisan::call('app:reset-charging-plan', ['--replan' => true]);
+
+        $output = trim(Artisan::output());
+
+        return $output !== '' ? $output : 'Charging plan reset and rebuilt.';
+    }
+
     private function stopCharging(
+        ChargingExecutionService $execution,
         ChargingSettingsService $chargingSettings,
         HomeAssistantService $homeAssistant,
     ): string {
         $settings = $chargingSettings->resolve();
+        $currentMeterKwh = null;
+
+        try {
+            $currentMeterKwh = $homeAssistant->chargerEnergyTotalKwh();
+        } catch (Throwable) {
+            $currentMeterKwh = null;
+        }
+
+        $stoppedSlot = $execution->interruptActiveSlot(now()->toImmutable(), $currentMeterKwh, 'stopped');
 
         $homeAssistant->stopCharging($settings);
+
+        if ($stoppedSlot !== null) {
+            return sprintf(
+                'Charging stopped from the dashboard. Recorded %.2f kWh before stop.',
+                (float) $stoppedSlot->executed_energy_kwh,
+            );
+        }
 
         return 'Charging stopped from the dashboard.';
     }

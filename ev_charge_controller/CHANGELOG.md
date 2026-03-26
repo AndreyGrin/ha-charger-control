@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+- Add dashboard artisan runner with whitelisted command execution and inline output
+- Add reset-and-replan dashboard action and command
+- Stop active charging sessions immediately when manually stopping the charger
+- Record charged energy up to stop time from the charger meter and show stopped status in the UI
+
 ## 0.1.7
 - Add optional MariaDB configuration in Home Assistant add-on settings
 - Keep SQLite as the fallback when MariaDB settings are not provided

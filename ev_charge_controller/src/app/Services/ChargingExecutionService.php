@@ -58,7 +58,7 @@ class ChargingExecutionService
         ];
     }
 
-    public function interruptActiveSlot(CarbonImmutable $now, ?float $currentMeterKwh = null): ?ChargingPlanSlot
+    public function interruptActiveSlot(CarbonImmutable $now, ?float $currentMeterKwh = null, string $status = 'stopped'): ?ChargingPlanSlot
     {
         $slot = ChargingPlanSlot::query()
             ->whereNotNull('execution_started_at')
@@ -78,13 +78,13 @@ class ChargingExecutionService
         }
 
         $slot->forceFill([
-            'status' => $executedEnergy > 0 ? 'completed' : 'cancelled',
+            'status' => $executedEnergy > 0 ? $status : 'cancelled',
             'execution_finished_at' => $now,
             'meter_finished_kwh' => $currentMeterKwh,
             'executed_energy_kwh' => $executedEnergy,
         ])->save();
 
-        $this->storeChargingSession($slot, $executedEnergy);
+        $this->storeChargingSession($slot, $executedEnergy, $status);
 
         return $slot->fresh();
     }
@@ -138,7 +138,7 @@ class ChargingExecutionService
                     'executed_energy_kwh' => $executedEnergy,
                 ])->save();
 
-                $this->storeChargingSession($slot, $executedEnergy);
+                $this->storeChargingSession($slot, $executedEnergy, 'completed');
             });
     }
 
@@ -149,7 +149,7 @@ class ChargingExecutionService
             ->each(fn (ChargingPlanSlot $slot) => $slot->forceFill(['status' => 'missed'])->save());
     }
 
-    private function storeChargingSession(ChargingPlanSlot $slot, float $executedEnergy): void
+    private function storeChargingSession(ChargingPlanSlot $slot, float $executedEnergy, string $status): void
     {
         if ($executedEnergy <= 0) {
             return;
@@ -163,7 +163,7 @@ class ChargingExecutionService
                 'ended_at' => $slot->execution_finished_at ?? $slot->ends_at,
             ],
             [
-                'status' => 'completed',
+                'status' => $status,
                 'energy_kwh' => $executedEnergy,
                 'average_price_per_kwh' => $slot->effective_price_per_kwh,
                 'estimated_peak_price_per_kwh' => $slot->market_price_per_kwh,

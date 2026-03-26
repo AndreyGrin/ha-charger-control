@@ -2,7 +2,9 @@
 
 use App\Models\ChargingSetting;
 use App\Models\PriceForecast;
+use App\Services\DashboardArtisanRunner;
 use Illuminate\Support\Facades\Artisan;
+use Mockery as MockeryFacade;
 
 test('dashboard renders charging overview content', function () {
     config()->set('charging.defaults.charger_name', 'test-charger');
@@ -43,7 +45,8 @@ test('dashboard renders charging overview content', function () {
         ->assertSee('test-charger')
         ->assertSee('Refresh Plan')
         ->assertSee('Execute Now')
-        ->assertSee('Stop Charger');
+        ->assertSee('Stop Charger')
+        ->assertSee('Run artisan command');
 });
 
 test('dashboard plan action runs strategy command and redirects back', function () {
@@ -61,4 +64,26 @@ test('dashboard plan action runs strategy command and redirects back', function 
     $response
         ->assertRedirect('/')
         ->assertSessionHas('dashboard_status', 'Strategy refreshed');
+});
+
+test('dashboard artisan runner stores command output in session', function () {
+    $mock = MockeryFacade::mock(DashboardArtisanRunner::class);
+    $mock->shouldReceive('run')
+        ->once()
+        ->with('app:check-home-assistant')
+        ->andReturn([
+            'command' => 'app:check-home-assistant',
+            'exit_code' => 0,
+            'output' => 'Everything looks good.',
+        ]);
+
+    $this->app->instance(DashboardArtisanRunner::class, $mock);
+
+    $response = $this->post('/artisan-run', [
+        'command' => 'app:check-home-assistant',
+    ]);
+
+    $response
+        ->assertRedirect('/')
+        ->assertSessionHas('artisan_result.output', 'Everything looks good.');
 });

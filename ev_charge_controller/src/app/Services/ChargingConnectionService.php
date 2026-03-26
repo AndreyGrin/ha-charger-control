@@ -61,7 +61,7 @@ class ChargingConnectionService
         $this->homeAssistant->stopCharging($settings);
 
         $interruptedSlot = DB::transaction(function () use ($now, $currentMeterKwh) {
-            $slot = $this->execution->interruptActiveSlot($now, $currentMeterKwh);
+            $slot = $this->execution->interruptActiveSlot($now, $currentMeterKwh, 'cancelled');
 
             ChargingPlanSlot::query()
                 ->whereHas('plan', fn ($query) => $query->where('status', 'planned'))

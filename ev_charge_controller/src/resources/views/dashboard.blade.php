@@ -61,6 +61,49 @@
                                 <p class="mt-2 text-sm text-white/60">{{ number_format($historyTotals?->energy_kwh ?? 0, 1) }} kWh delivered</p>
                             </article>
                         </div>
+
+                        <article class="glass-panel border-white/8 bg-black/10 p-5">
+                            <div class="eyebrow">Operations</div>
+                            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/45">
+                                <span>Allowed:</span>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">app:evaluate-charging-strategy</code>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">app:execute-charging-plan</code>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">app:reset-charging-plan</code>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">app:check-home-assistant</code>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">app:dump-home-assistant-entity</code>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">about</code>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">migrate:status</code>
+                                <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">schedule:list</code>
+                            </div>
+                            <form class="mt-4 space-y-3" method="POST" action="{{ route('dashboard.artisan') }}">
+                                @csrf
+                                <label class="block">
+                                    <span class="mb-2 block text-sm text-white/60">Run artisan command</span>
+                                    <input
+                                        type="text"
+                                        name="command"
+                                        value="{{ old('command', data_get(session('artisan_result'), 'command', 'app:evaluate-charging-strategy')) }}"
+                                        class="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm text-white outline-none"
+                                        placeholder="app:evaluate-charging-strategy --until=07:00"
+                                    />
+                                </label>
+                                <button type="submit" class="rounded-2xl border border-white/15 bg-black/20 px-4 py-3 text-sm font-medium text-white transition duration-150 ease-in-out hover:bg-white/5">
+                                    Run Command
+                                </button>
+                            </form>
+
+                            @if (session('artisan_result'))
+                                <div class="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                                    <div class="flex items-center justify-between gap-3 text-sm">
+                                        <span class="font-mono text-white">{{ data_get(session('artisan_result'), 'command') }}</span>
+                                        <span class="rounded-full border border-white/10 px-3 py-1 font-mono text-xs text-white/60">
+                                            exit {{ data_get(session('artisan_result'), 'exit_code') }}
+                                        </span>
+                                    </div>
+                                    <pre class="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/70">{{ data_get(session('artisan_result'), 'output', 'No output.') }}</pre>
+                                </div>
+                            @endif
+                        </article>
                     </div>
 
                     <aside class="glass-panel border-white/8 bg-black/10 p-5">
@@ -86,7 +129,7 @@
                             </div>
                         @endif
 
-                        <div class="mt-5 grid gap-2 sm:grid-cols-3">
+                        <div class="mt-5 grid gap-2 sm:grid-cols-2">
                             <form method="POST" action="./actions/plan" data-dashboard-action="plan">
                                 @csrf
                                 <button type="submit" class="w-full rounded-2xl border border-sky/40 bg-sky/10 px-4 py-3 text-sm font-medium text-white transition duration-150 ease-in-out hover:bg-white/5">
@@ -97,6 +140,12 @@
                                 @csrf
                                 <button type="submit" class="w-full rounded-2xl border border-mint/40 bg-mint/10 px-4 py-3 text-sm font-medium text-white transition duration-150 ease-in-out hover:bg-white/5">
                                     Execute Now
+                                </button>
+                            </form>
+                            <form method="POST" action="./actions/reset" data-dashboard-action="reset">
+                                @csrf
+                                <button type="submit" class="w-full rounded-2xl border border-solar/40 bg-solar/10 px-4 py-3 text-sm font-medium text-white transition duration-150 ease-in-out hover:bg-white/5">
+                                    Reset + Replan
                                 </button>
                             </form>
                             <form method="POST" action="./actions/stop" data-dashboard-action="stop">
@@ -243,9 +292,9 @@
                                                 $executedEnergy = (float) data_get($selected, 'executed_energy_kwh', 0);
                                                 $plannedEnergy = (float) data_get($selected, 'allocated_energy_kwh', 0);
                                             @endphp
-                                            @if ($slotStatus === 'completed' && $executedEnergy > 0)
+                                            @if (in_array($slotStatus, ['completed', 'stopped'], true) && $executedEnergy > 0)
                                                 <span class="rounded-full border border-mint/40 bg-mint/10 px-3 py-1 text-xs font-medium text-mint">
-                                                    {{ number_format($executedEnergy, 1) }} kWh executed
+                                                    {{ number_format($executedEnergy, 1) }} kWh {{ $slotStatus === 'stopped' ? 'stopped' : 'executed' }}
                                                 </span>
                                             @elseif ($slotStatus === 'active')
                                                 <span class="rounded-full border border-sky/40 bg-sky/10 px-3 py-1 text-xs font-medium text-sky">
@@ -272,6 +321,8 @@
                                                 <span class="font-mono text-xs uppercase tracking-[0.24em] text-white/40">
                                                     @if (data_get($selected, 'status') === 'completed' && data_get($selected, 'executed_energy_kwh', 0) > 0)
                                                         Executed
+                                                    @elseif (data_get($selected, 'status') === 'stopped' && data_get($selected, 'executed_energy_kwh', 0) > 0)
+                                                        Stopped
                                                     @elseif (data_get($selected, 'status') === 'missed')
                                                         Missed
                                                     @elseif (data_get($selected, 'status') === 'active')
@@ -284,6 +335,8 @@
                                             <p class="mt-2 text-xs leading-5 text-white/55">
                                                 @if (data_get($selected, 'status') === 'completed' && data_get($selected, 'executed_energy_kwh', 0) > 0)
                                                     Charged {{ number_format(data_get($selected, 'executed_energy_kwh', 0), 2) }} kWh based on charger meter readings.
+                                                @elseif (data_get($selected, 'status') === 'stopped' && data_get($selected, 'executed_energy_kwh', 0) > 0)
+                                                    Stopped early after charging {{ number_format(data_get($selected, 'executed_energy_kwh', 0), 2) }} kWh based on charger meter readings.
                                                 @elseif (data_get($selected, 'status') === 'missed')
                                                     Planned slot passed without recorded charging.
                                                 @else
