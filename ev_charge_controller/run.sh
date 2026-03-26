@@ -21,7 +21,7 @@ write_env() {
     mkdir -p /data "${APP_ROOT}/storage" "${APP_ROOT}/bootstrap/cache"
 
     if [[ ! -f "${APP_KEY_FILE}" ]]; then
-        php83 -r 'echo "base64:".base64_encode(random_bytes(32));' > "${APP_KEY_FILE}"
+        php84 -r 'echo "base64:".base64_encode(random_bytes(32));' > "${APP_KEY_FILE}"
     fi
 
     touch "${DB_FILE}"
@@ -118,16 +118,16 @@ prepare_storage() {
 bootstrap_laravel() {
     cd "${APP_ROOT}"
 
-    php83 artisan optimize:clear
-    php83 artisan migrate --force
-    php83 artisan config:cache
-    php83 artisan route:cache
-    php83 artisan view:cache
+    php84 artisan optimize:clear
+    php84 artisan migrate --force
+    php84 artisan config:cache
+    php84 artisan route:cache
+    php84 artisan view:cache
 }
 
 start_scheduler() {
     cd "${APP_ROOT}"
-    php83 artisan schedule:work &
+    php84 artisan schedule:work &
     SCHEDULER_PID=$!
 }
 
@@ -156,7 +156,7 @@ log "Starting Laravel scheduler"
 start_scheduler
 
 log "Starting PHP-FPM"
-php-fpm83 -F &
+php-fpm84 -F &
 PHP_FPM_PID=$!
 
 log "Starting Nginx"

@@ -1,7 +1,9 @@
 # Changelog
 
-## 0.1.4
+## 0.1.5
+- Upgrade to PHP 8.4
 
+## 0.1.4
 - Add Home Assistant repository-compatible add-on layout
 - Build Composer dependencies and frontend assets inside the add-on image
 - Fix Laravel storage framework bootstrap directories in add-on startup
