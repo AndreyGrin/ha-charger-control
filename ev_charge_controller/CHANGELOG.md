@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9
+- Treat past unexecuted planned slots as missed in the dashboard instead of leaving them visually planned
+- Exclude stale past planned energy from the executed-vs-planned timeline
+- Fix the timeline current-time marker so it reflects the real minute position inside the active hour
+
 ## 0.1.8
 - Add dashboard artisan runner with whitelisted command execution and inline output
 - Add reset-and-replan dashboard action and command

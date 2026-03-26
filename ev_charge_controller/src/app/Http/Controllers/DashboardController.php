@@ -33,11 +33,15 @@ class DashboardController extends Controller
         }
 
         $displayPlan = $currentPlan;
-        $displaySlots = $currentPlan?->slots ?? collect();
+        $displaySlots = ($currentPlan?->slots ?? collect())
+            ->map(fn ($slot) => $this->normalizeSlotForDisplay($slot, $now))
+            ->values();
 
         if ($displayPlan === null && $preview !== null) {
             $displayPlan = $preview['plan'];
-            $displaySlots = $preview['slots'];
+            $displaySlots = collect($preview['slots'])
+                ->map(fn ($slot) => $this->normalizeSlotForDisplay($slot, $now))
+                ->values();
         }
 
         $scheduleWindowStart = $now->startOfHour();
@@ -47,7 +51,9 @@ class DashboardController extends Controller
             ->where('starts_at', '>=', $scheduleWindowStart)
             ->where('starts_at', '<', $scheduleWindowEnd)
             ->get()
+            ->map(fn ($slot) => $this->normalizeSlotForDisplay($slot, $now))
             ->sortByDesc(fn (ChargingPlanSlot $slot) => [
+                $this->slotDisplayPriority($slot),
                 $slot->executed_energy_kwh > 0 ? 1 : 0,
                 $slot->execution_started_at?->getTimestamp() ?? 0,
                 $slot->plan?->generated_at?->getTimestamp() ?? 0,
@@ -78,6 +84,7 @@ class DashboardController extends Controller
             'recentSessions' => $recentSessions,
             'historyTotals' => $historyTotals,
             'timeline' => $timeline,
+            'currentTime' => $now,
             'usingPreviewPlan' => $currentPlan === null && $preview !== null,
         ]);
     }
@@ -107,8 +114,9 @@ class DashboardController extends Controller
                 $slotStart = data_get($slot, 'starts_at');
                 $slotEnd = data_get($slot, 'ends_at');
                 $allocated = (float) data_get($slot, 'allocated_energy_kwh', 0);
+                $displayStatus = data_get($slot, 'display_status', data_get($slot, 'status'));
 
-                if (! $slotStart || ! $slotEnd) {
+                if (! $slotStart || ! $slotEnd || ! in_array($displayStatus, ['planned', 'active'], true)) {
                     return 0;
                 }
 
@@ -161,5 +169,33 @@ class DashboardController extends Controller
         $sourceMinutes = max(1, $sourceStart->diffInMinutes($sourceEnd));
 
         return $sourceEnergy * ($overlapMinutes / $sourceMinutes);
+    }
+
+    private function normalizeSlotForDisplay($slot, CarbonImmutable $now): ChargingPlanSlot
+    {
+        if (is_array($slot)) {
+            $slot = new ChargingPlanSlot($slot);
+        }
+
+        $displayStatus = $slot->status;
+
+        if ($displayStatus === 'planned' && $slot->ends_at->lessThanOrEqualTo($now)) {
+            $displayStatus = 'missed';
+        }
+
+        $slot->setAttribute('display_status', $displayStatus);
+
+        return $slot;
+    }
+
+    private function slotDisplayPriority(ChargingPlanSlot $slot): int
+    {
+        return match (data_get($slot, 'display_status', $slot->status)) {
+            'completed', 'stopped' => 5,
+            'active' => 4,
+            'missed' => 3,
+            'cancelled' => 2,
+            default => 1,
+        };
     }
 }

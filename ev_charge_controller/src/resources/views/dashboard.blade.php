@@ -211,6 +211,13 @@
                                         $isCurrentHour = $hourBins->contains(fn (array $bin) => $bin['is_current']);
                                         $plannedTotal = $hourBins->sum('planned_kwh');
                                         $executedTotal = $hourBins->sum('executed_kwh');
+                                        $markerPercent = max(
+                                            0,
+                                            min(
+                                                100,
+                                                (($currentTime->getTimestamp() - $hourStart->getTimestamp()) / 3600) * 100,
+                                            ),
+                                        );
                                         $tooltip = $hourStart->format('D H:i').' to '.$hourStart->copy()->addHour()->format('H:i')
                                             .' | planned '.number_format($plannedTotal, 2).' kWh'
                                             .' | executed '.number_format($executedTotal, 2).' kWh';
@@ -221,16 +228,19 @@
                                             title="{{ $tooltip }}"
                                         >
                                             @if ($isCurrentHour)
-                                                <div class="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-sky/65"></div>
+                                                <div class="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-sky/65" style="left: {{ number_format($markerPercent, 2, '.', '') }}%;"></div>
                                             @endif
                                             @foreach ($hourBins as $bin)
                                                 @php
+                                                    $trackColor = $bin['is_current']
+                                                        ? 'rgba(110, 206, 255, 0.16)'
+                                                        : 'rgba(255, 255, 255, 0.06)';
                                                     $barTitle = $bin['starts_at']->format('D H:i').' to '.$bin['ends_at']->format('H:i')
                                                         .' | planned '.number_format($bin['planned_kwh'], 2).' kWh'
                                                         .' | executed '.number_format($bin['executed_kwh'], 2).' kWh';
                                                 @endphp
                                                 <div class="flex h-28 items-end" style="width: 5px; min-width: 5px;" title="{{ $barTitle }}">
-                                                    <div class="flex items-end justify-center rounded-full" style="width: 5px; height: 112px; background-color: rgba(255, 255, 255, 0.06);">
+                                                    <div class="flex items-end justify-center rounded-full" style="width: 5px; height: 112px; background-color: {{ $trackColor }};">
                                                         @if ($bin['executed_kwh'] > 0)
                                                             <div style="width: 5px; height: {{ max(4, $bin['executed_height']) }}px; border-radius: 9999px; background-color: #7df2c4;"></div>
                                                         @elseif ($bin['planned_kwh'] > 0)
@@ -288,7 +298,7 @@
                                         </div>
                                         @if ($selected)
                                             @php
-                                                $slotStatus = data_get($selected, 'status', 'planned');
+                                                $slotStatus = data_get($selected, 'display_status', data_get($selected, 'status', 'planned'));
                                                 $executedEnergy = (float) data_get($selected, 'executed_energy_kwh', 0);
                                                 $plannedEnergy = (float) data_get($selected, 'allocated_energy_kwh', 0);
                                             @endphp
@@ -319,13 +329,13 @@
                                             <div class="flex flex-wrap items-center justify-between gap-3">
                                                 <span>Effective price: EUR {{ number_format(data_get($selected, 'effective_price_per_kwh', 0), 3) }}/kWh</span>
                                                 <span class="font-mono text-xs uppercase tracking-[0.24em] text-white/40">
-                                                    @if (data_get($selected, 'status') === 'completed' && data_get($selected, 'executed_energy_kwh', 0) > 0)
+                                                    @if ($slotStatus === 'completed' && data_get($selected, 'executed_energy_kwh', 0) > 0)
                                                         Executed
-                                                    @elseif (data_get($selected, 'status') === 'stopped' && data_get($selected, 'executed_energy_kwh', 0) > 0)
+                                                    @elseif ($slotStatus === 'stopped' && data_get($selected, 'executed_energy_kwh', 0) > 0)
                                                         Stopped
-                                                    @elseif (data_get($selected, 'status') === 'missed')
+                                                    @elseif ($slotStatus === 'missed')
                                                         Missed
-                                                    @elseif (data_get($selected, 'status') === 'active')
+                                                    @elseif ($slotStatus === 'active')
                                                         Active
                                                     @else
                                                         {{ ucfirst(data_get($selected, 'selection_bucket', 'planned')) }}
@@ -333,11 +343,11 @@
                                                 </span>
                                             </div>
                                             <p class="mt-2 text-xs leading-5 text-white/55">
-                                                @if (data_get($selected, 'status') === 'completed' && data_get($selected, 'executed_energy_kwh', 0) > 0)
+                                                @if ($slotStatus === 'completed' && data_get($selected, 'executed_energy_kwh', 0) > 0)
                                                     Charged {{ number_format(data_get($selected, 'executed_energy_kwh', 0), 2) }} kWh based on charger meter readings.
-                                                @elseif (data_get($selected, 'status') === 'stopped' && data_get($selected, 'executed_energy_kwh', 0) > 0)
+                                                @elseif ($slotStatus === 'stopped' && data_get($selected, 'executed_energy_kwh', 0) > 0)
                                                     Stopped early after charging {{ number_format(data_get($selected, 'executed_energy_kwh', 0), 2) }} kWh based on charger meter readings.
-                                                @elseif (data_get($selected, 'status') === 'missed')
+                                                @elseif ($slotStatus === 'missed')
                                                     Planned slot passed without recorded charging.
                                                 @else
                                                     {{ data_get($selected, 'rationale') }}
