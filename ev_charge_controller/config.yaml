@@ -1,6 +1,6 @@
 name: "EV Charge Controller"
 description: "Laravel-based Home Assistant add-on for Nordpool, solar-aware EV charging control."
-version: "0.1.5"
+version: "0.1.6"
 slug: "ev_charge_controller"
 init: false
 startup: application

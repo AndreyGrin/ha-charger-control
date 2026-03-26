@@ -112,6 +112,7 @@ prepare_storage() {
     ln -sfn /data/storage/app "${APP_ROOT}/storage/app"
     ln -sfn /data/storage/framework "${APP_ROOT}/storage/framework"
     ln -sfn /data/storage/logs "${APP_ROOT}/storage/logs"
+    chown -R nginx:nginx /data/storage "${APP_ROOT}/bootstrap/cache"
     chmod -R 775 /data/storage "${APP_ROOT}/bootstrap/cache"
 }
 
