@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11
+- Fix dashboard artisan runner under Home Assistant ingress by switching it to relative JSON-based execution
+- Show a popup with command output and success or failure state when a dashboard artisan command finishes
+- Fix dashboard reset rendering so cancelled plans no longer keep stale planned slots visible in the widgets
+
 ## 0.1.10
 - Document all supported artisan commands, parameters, and examples in the add-on documentation
 - Add one-off `--minimum-soc` and `--minimum-deadline` overrides to `app:evaluate-charging-strategy`

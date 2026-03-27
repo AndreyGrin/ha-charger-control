@@ -25,10 +25,15 @@ class DashboardController extends Controller
             ->limit(36)
             ->get();
 
-        $currentPlan = ChargingPlan::query()->with('slots')->latest('generated_at')->first();
+        $currentPlan = ChargingPlan::query()
+            ->with('slots')
+            ->where('status', 'planned')
+            ->latest('generated_at')
+            ->first();
+        $hasPlanHistory = ChargingPlan::query()->exists();
         $preview = null;
 
-        if ($settings && $forecasts->isNotEmpty()) {
+        if ($settings && $forecasts->isNotEmpty() && $currentPlan === null && ! $hasPlanHistory) {
             $preview = $planner->build($settings, $forecasts, $now);
         }
 
@@ -46,17 +51,15 @@ class DashboardController extends Controller
 
         $scheduleWindowStart = $now->startOfHour();
         $scheduleWindowEnd = $scheduleWindowStart->addHours(36);
-        $selectedSlotStarts = ChargingPlanSlot::query()
-            ->with('plan')
-            ->where('starts_at', '>=', $scheduleWindowStart)
-            ->where('starts_at', '<', $scheduleWindowEnd)
-            ->get()
-            ->map(fn ($slot) => $this->normalizeSlotForDisplay($slot, $now))
+        $selectedSlotStarts = $displaySlots
+            ->filter(function (ChargingPlanSlot $slot) use ($scheduleWindowStart, $scheduleWindowEnd) {
+                return $slot->starts_at->greaterThanOrEqualTo($scheduleWindowStart)
+                    && $slot->starts_at->lessThan($scheduleWindowEnd);
+            })
             ->sortByDesc(fn (ChargingPlanSlot $slot) => [
                 $this->slotDisplayPriority($slot),
                 $slot->executed_energy_kwh > 0 ? 1 : 0,
                 $slot->execution_started_at?->getTimestamp() ?? 0,
-                $slot->plan?->generated_at?->getTimestamp() ?? 0,
             ])
             ->unique(fn (ChargingPlanSlot $slot) => $slot->starts_at->toIso8601String())
             ->keyBy(fn (ChargingPlanSlot $slot) => $slot->starts_at->toIso8601String());

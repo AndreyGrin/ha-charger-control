@@ -75,7 +75,7 @@
                                 <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">migrate:status</code>
                                 <code class="rounded-full border border-white/10 bg-white/5 px-2 py-1">schedule:list</code>
                             </div>
-                            <form class="mt-4 space-y-3" method="POST" action="{{ route('dashboard.artisan') }}">
+                            <form class="mt-4 space-y-3" method="POST" action="./artisan-run" data-artisan-runner>
                                 @csrf
                                 <label class="block">
                                     <span class="mb-2 block text-sm text-white/60">Run artisan command</span>
@@ -92,17 +92,26 @@
                                 </button>
                             </form>
 
-                            @if (session('artisan_result'))
-                                <div class="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <div
+                                class="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 {{ session('artisan_result') ? '' : 'hidden' }}"
+                                data-artisan-result
+                            >
+                                @if (session('artisan_result'))
                                     <div class="flex items-center justify-between gap-3 text-sm">
-                                        <span class="font-mono text-white">{{ data_get(session('artisan_result'), 'command') }}</span>
-                                        <span class="rounded-full border border-white/10 px-3 py-1 font-mono text-xs text-white/60">
+                                        <span class="font-mono text-white" data-artisan-command>{{ data_get(session('artisan_result'), 'command') }}</span>
+                                        <span class="rounded-full border border-white/10 px-3 py-1 font-mono text-xs text-white/60" data-artisan-exit>
                                             exit {{ data_get(session('artisan_result'), 'exit_code') }}
                                         </span>
                                     </div>
-                                    <pre class="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/70">{{ data_get(session('artisan_result'), 'output', 'No output.') }}</pre>
-                                </div>
-                            @endif
+                                    <pre class="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/70" data-artisan-output>{{ data_get(session('artisan_result'), 'output', 'No output.') }}</pre>
+                                @else
+                                    <div class="flex items-center justify-between gap-3 text-sm">
+                                        <span class="font-mono text-white" data-artisan-command></span>
+                                        <span class="rounded-full border border-white/10 px-3 py-1 font-mono text-xs text-white/60" data-artisan-exit></span>
+                                    </div>
+                                    <pre class="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/70" data-artisan-output></pre>
+                                @endif
+                            </div>
                         </article>
                     </div>
 
@@ -424,6 +433,28 @@
                 </div>
             </section>
         </main>
+        <div
+            class="pointer-events-none fixed inset-x-4 top-4 z-50 hidden justify-center"
+            data-command-toast
+            aria-live="polite"
+        >
+            <div class="pointer-events-auto w-full max-w-2xl rounded-3xl border border-white/12 bg-[#111a23]/95 p-4 shadow-2xl shadow-black/30 backdrop-blur">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                        <div class="text-xs uppercase tracking-[0.24em] text-sky" data-command-toast-label>Command finished</div>
+                        <div class="mt-2 break-all font-mono text-sm text-white" data-command-toast-command></div>
+                    </div>
+                    <button
+                        type="button"
+                        class="rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-white/70 transition duration-150 ease-in-out hover:bg-white/5"
+                        data-command-toast-close
+                    >
+                        Close
+                    </button>
+                </div>
+                <pre class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/75" data-command-toast-output></pre>
+            </div>
+        </div>
         <script>
             (() => {
                 const QUARTER_HOUR_MS = 15 * 60 * 1000;
@@ -476,6 +507,101 @@
                             }
                         }
                     });
+                });
+            })();
+
+            (() => {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const form = document.querySelector('form[data-artisan-runner]');
+                const resultCard = document.querySelector('[data-artisan-result]');
+                const commandTarget = document.querySelector('[data-artisan-command]');
+                const exitTarget = document.querySelector('[data-artisan-exit]');
+                const outputTarget = document.querySelector('[data-artisan-output]');
+                const toast = document.querySelector('[data-command-toast]');
+                const toastCommand = document.querySelector('[data-command-toast-command]');
+                const toastOutput = document.querySelector('[data-command-toast-output]');
+                const toastLabel = document.querySelector('[data-command-toast-label]');
+                const toastClose = document.querySelector('[data-command-toast-close]');
+                let toastTimer = null;
+
+                if (! form || ! resultCard || ! commandTarget || ! exitTarget || ! outputTarget || ! toast || ! toastCommand || ! toastOutput || ! toastLabel || ! toastClose) {
+                    return;
+                }
+
+                const showToast = (result, fallbackCommand = '') => {
+                    if (toastTimer) {
+                        window.clearTimeout(toastTimer);
+                    }
+
+                    const exitCode = Number(result.exit_code ?? 1);
+                    toast.classList.remove('hidden');
+                    toast.classList.add('flex');
+                    toastCommand.textContent = result.command ?? fallbackCommand;
+                    toastOutput.textContent = result.output && result.output !== '' ? result.output : 'No output.';
+                    toastLabel.textContent = exitCode === 0 ? 'Command finished' : 'Command failed';
+                    toastLabel.className = `text-xs uppercase tracking-[0.24em] ${exitCode === 0 ? 'text-sky' : 'text-alert'}`;
+
+                    toastTimer = window.setTimeout(() => {
+                        toast.classList.add('hidden');
+                        toast.classList.remove('flex');
+                    }, 9000);
+                };
+
+                toastClose.addEventListener('click', () => {
+                    if (toastTimer) {
+                        window.clearTimeout(toastTimer);
+                    }
+
+                    toast.classList.add('hidden');
+                    toast.classList.remove('flex');
+                });
+
+                form.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    const formData = new FormData(form);
+
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                    }
+
+                    try {
+                        const response = await fetch(form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': csrfToken ?? '',
+                            },
+                            body: formData,
+                        });
+
+                        const result = await response.json();
+
+                        resultCard.classList.remove('hidden');
+                        commandTarget.textContent = result.command ?? '';
+                        exitTarget.textContent = `exit ${result.exit_code ?? 1}`;
+                        outputTarget.textContent = result.output && result.output !== '' ? result.output : 'No output.';
+                        showToast(result, formData.get('command')?.toString() ?? '');
+                    } catch (error) {
+                        const fallbackResult = {
+                            command: formData.get('command')?.toString() ?? '',
+                            exit_code: 1,
+                            output: error instanceof Error ? error.message : 'Command request failed.',
+                        };
+
+                        resultCard.classList.remove('hidden');
+                        commandTarget.textContent = fallbackResult.command;
+                        exitTarget.textContent = 'exit 1';
+                        outputTarget.textContent = fallbackResult.output;
+                        showToast(fallbackResult, fallbackResult.command);
+                        console.error(error);
+                    } finally {
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                        }
+                    }
                 });
             })();
         </script>
