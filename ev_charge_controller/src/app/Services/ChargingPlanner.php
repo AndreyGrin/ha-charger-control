@@ -20,7 +20,7 @@ class ChargingPlanner
         $slots = $forecasts
             ->sortBy('starts_at')
             ->values()
-            ->map(fn (PriceForecast $forecast) => $this->makeSlot($settings, $forecast, $deadline));
+            ->map(fn (PriceForecast $forecast) => $this->makeSlot($settings, $forecast, $deadline, $now));
 
         $slots = $this->allocateEnergy($slots, $minimumEnergy, true, 'minimum');
         $remainingForTarget = max(0, round($targetEnergy - $slots->sum('allocated_energy_kwh'), 3));
@@ -86,12 +86,28 @@ class ChargingPlanner
 
         $candidateIndexes = $slots
             ->map(fn (array $slot, int $index) => ['index' => $index, ...$slot])
-            ->sortBy([
-                fn (array $slot) => $beforeDeadlineFirst ? ($slot['before_deadline'] ? 0 : 1) : 0,
-                fn (array $slot) => $slot['effective_price_per_kwh'],
-                fn (array $slot) => $slot['market_price_per_kwh'],
-                fn (array $slot) => $slot['starts_at']->getTimestamp(),
-            ])
+            ->sort(function (array $left, array $right) use ($beforeDeadlineFirst): int {
+                $deadlineComparison = ($beforeDeadlineFirst ? ($left['before_deadline'] ? 0 : 1) : 0)
+                    <=> ($beforeDeadlineFirst ? ($right['before_deadline'] ? 0 : 1) : 0);
+
+                if ($deadlineComparison !== 0) {
+                    return $deadlineComparison;
+                }
+
+                $effectivePriceComparison = $left['effective_price_per_kwh'] <=> $right['effective_price_per_kwh'];
+
+                if ($effectivePriceComparison !== 0) {
+                    return $effectivePriceComparison;
+                }
+
+                $marketPriceComparison = $left['market_price_per_kwh'] <=> $right['market_price_per_kwh'];
+
+                if ($marketPriceComparison !== 0) {
+                    return $marketPriceComparison;
+                }
+
+                return $left['starts_at']->getTimestamp() <=> $right['starts_at']->getTimestamp();
+            })
             ->pluck('index');
 
         foreach ($candidateIndexes as $index) {
@@ -125,9 +141,15 @@ class ChargingPlanner
         return $slots;
     }
 
-    private function makeSlot(ChargingSetting $settings, PriceForecast $forecast, CarbonImmutable $deadline): array
-    {
-        $durationHours = max(0.25, $forecast->starts_at->diffInMinutes($forecast->ends_at) / 60);
+    private function makeSlot(
+        ChargingSetting $settings,
+        PriceForecast $forecast,
+        CarbonImmutable $deadline,
+        CarbonImmutable $now,
+    ): array {
+        $usableStart = $forecast->starts_at->greaterThan($now) ? $forecast->starts_at : $now;
+        $durationMinutes = max(0, $usableStart->diffInMinutes($forecast->ends_at, false));
+        $durationHours = max(0, $durationMinutes / 60);
         $capacity = round($settings->charger_power_kw * $durationHours, 3);
         $solar = min($capacity, max(0, $forecast->solar_surplus_kwh));
         $gridTariff = $this->gridTariffFor($settings, $forecast->starts_at);

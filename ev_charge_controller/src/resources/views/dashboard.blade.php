@@ -92,26 +92,6 @@
                                 </button>
                             </form>
 
-                            <div
-                                class="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 {{ session('artisan_result') ? '' : 'hidden' }}"
-                                data-artisan-result
-                            >
-                                @if (session('artisan_result'))
-                                    <div class="flex items-center justify-between gap-3 text-sm">
-                                        <span class="font-mono text-white" data-artisan-command>{{ data_get(session('artisan_result'), 'command') }}</span>
-                                        <span class="rounded-full border border-white/10 px-3 py-1 font-mono text-xs text-white/60" data-artisan-exit>
-                                            exit {{ data_get(session('artisan_result'), 'exit_code') }}
-                                        </span>
-                                    </div>
-                                    <pre class="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/70" data-artisan-output>{{ data_get(session('artisan_result'), 'output', 'No output.') }}</pre>
-                                @else
-                                    <div class="flex items-center justify-between gap-3 text-sm">
-                                        <span class="font-mono text-white" data-artisan-command></span>
-                                        <span class="rounded-full border border-white/10 px-3 py-1 font-mono text-xs text-white/60" data-artisan-exit></span>
-                                    </div>
-                                    <pre class="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/70" data-artisan-output></pre>
-                                @endif
-                            </div>
                         </article>
                     </div>
 
@@ -202,6 +182,10 @@
                             <span class="h-2 w-2 rounded-full bg-white/30"></span>
                             Planned
                         </span>
+                        <span class="flex items-center gap-2">
+                            <span class="h-px w-5 bg-amber-300"></span>
+                            Market Price
+                        </span>
                     </div>
                 </div>
                 <p class="mt-3 text-sm text-white/55">8 hours behind now and 24 hours ahead, split into 15-minute bars.</p>
@@ -209,11 +193,49 @@
                 <div class="mt-6 overflow-x-auto pb-1">
                     @php
                         $timelineHours = $timeline->chunk(4)->values();
+                        $hourWidth = 44;
+                        $hourGap = 12;
+                        $chartWidth = max(0, ($timelineHours->count() * $hourWidth) + (max(0, $timelineHours->count() - 1) * $hourGap));
+                        $priceLinePoints = $timeline
+                            ->values()
+                            ->map(function (array $bin, int $index) use ($hourWidth, $hourGap) {
+                                if ($bin['price_y'] === null) {
+                                    return null;
+                                }
+
+                                $hourIndex = intdiv($index, 4);
+                                $quarterIndex = $index % 4;
+                                $x = ($hourIndex * ($hourWidth + $hourGap)) + 8.5 + ($quarterIndex * 9);
+
+                                return number_format($x, 2, '.', '').','.number_format($bin['price_y'], 2, '.', '');
+                            })
+                            ->filter()
+                            ->implode(' ');
                     @endphp
                     <div class="min-w-max">
                         <div class="relative rounded-[28px] border border-white/8 bg-black/10 px-5 pb-4 pt-5">
                             <div class="pointer-events-none absolute inset-x-5 bottom-14 border-t border-dashed border-white/10"></div>
-                            <div class="flex items-end gap-3">
+                            <div class="relative" style="width: {{ $chartWidth }}px;">
+                                @if ($priceLinePoints !== '')
+                                    <svg
+                                        class="pointer-events-none absolute inset-x-0 top-0 z-10"
+                                        width="{{ $chartWidth }}"
+                                        height="128"
+                                        viewBox="0 0 {{ $chartWidth }} 128"
+                                        fill="none"
+                                        preserveAspectRatio="none"
+                                    >
+                                        <polyline
+                                            points="{{ $priceLinePoints }}"
+                                            stroke="#f7c66c"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            opacity="0.95"
+                                        />
+                                    </svg>
+                                @endif
+                                <div class="relative z-20 flex items-end gap-3">
                                 @foreach ($timelineHours as $hourBins)
                                     @php
                                         $hourStart = $hourBins->first()['starts_at'];
@@ -234,7 +256,7 @@
                                     <div class="flex flex-col items-center gap-3">
                                         <div
                                             class="relative flex h-32 items-end gap-1 rounded-2xl px-1.5 {{ $isCurrentHour ? 'bg-sky/6' : '' }}"
-                                            title="{{ $tooltip }}"
+                                            title="{{ $tooltip }}{{ $hourBins->avg('market_price_per_kwh') ? ' | avg market EUR '.number_format($hourBins->avg('market_price_per_kwh'), 3).'/kWh' : '' }}"
                                         >
                                             @if ($isCurrentHour)
                                                 <div class="pointer-events-none absolute inset-y-0 w-px -translate-x-1/2 bg-sky/65" style="left: {{ number_format($markerPercent, 2, '.', '') }}%;"></div>
@@ -246,7 +268,8 @@
                                                         : 'rgba(255, 255, 255, 0.06)';
                                                     $barTitle = $bin['starts_at']->format('D H:i').' to '.$bin['ends_at']->format('H:i')
                                                         .' | planned '.number_format($bin['planned_kwh'], 2).' kWh'
-                                                        .' | executed '.number_format($bin['executed_kwh'], 2).' kWh';
+                                                        .' | executed '.number_format($bin['executed_kwh'], 2).' kWh'
+                                                        .($bin['market_price_per_kwh'] !== null ? ' | market EUR '.number_format($bin['market_price_per_kwh'], 3).'/kWh' : '');
                                                 @endphp
                                                 <div class="flex h-28 items-end" style="width: 5px; min-width: 5px;" title="{{ $barTitle }}">
                                                     <div class="flex items-end justify-center rounded-full" style="width: 5px; height: 112px; background-color: {{ $trackColor }};">
@@ -269,6 +292,7 @@
                                         </div>
                                     </div>
                                 @endforeach
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -434,11 +458,11 @@
             </section>
         </main>
         <div
-            class="pointer-events-none fixed inset-x-4 top-4 z-50 hidden justify-center"
+            class="pointer-events-none fixed inset-0 z-50 hidden items-start justify-center bg-black/40 px-4 py-6 backdrop-blur-sm"
             data-command-toast
             aria-live="polite"
         >
-            <div class="pointer-events-auto w-full max-w-2xl rounded-3xl border border-white/12 bg-[#111a23]/95 p-4 shadow-2xl shadow-black/30 backdrop-blur">
+            <div class="pointer-events-auto mt-8 w-full max-w-2xl rounded-3xl border border-white/12 bg-[#111a23]/95 p-4 shadow-2xl shadow-black/30 backdrop-blur">
                 <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0">
                         <div class="text-xs uppercase tracking-[0.24em] text-sky" data-command-toast-label>Command finished</div>
@@ -513,10 +537,6 @@
             (() => {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
                 const form = document.querySelector('form[data-artisan-runner]');
-                const resultCard = document.querySelector('[data-artisan-result]');
-                const commandTarget = document.querySelector('[data-artisan-command]');
-                const exitTarget = document.querySelector('[data-artisan-exit]');
-                const outputTarget = document.querySelector('[data-artisan-output]');
                 const toast = document.querySelector('[data-command-toast]');
                 const toastCommand = document.querySelector('[data-command-toast-command]');
                 const toastOutput = document.querySelector('[data-command-toast-output]');
@@ -524,7 +544,7 @@
                 const toastClose = document.querySelector('[data-command-toast-close]');
                 let toastTimer = null;
 
-                if (! form || ! resultCard || ! commandTarget || ! exitTarget || ! outputTarget || ! toast || ! toastCommand || ! toastOutput || ! toastLabel || ! toastClose) {
+                if (! form || ! toast || ! toastCommand || ! toastOutput || ! toastLabel || ! toastClose) {
                     return;
                 }
 
@@ -578,11 +598,6 @@
                         });
 
                         const result = await response.json();
-
-                        resultCard.classList.remove('hidden');
-                        commandTarget.textContent = result.command ?? '';
-                        exitTarget.textContent = `exit ${result.exit_code ?? 1}`;
-                        outputTarget.textContent = result.output && result.output !== '' ? result.output : 'No output.';
                         showToast(result, formData.get('command')?.toString() ?? '');
                     } catch (error) {
                         const fallbackResult = {
@@ -591,10 +606,6 @@
                             output: error instanceof Error ? error.message : 'Command request failed.',
                         };
 
-                        resultCard.classList.remove('hidden');
-                        commandTarget.textContent = fallbackResult.command;
-                        exitTarget.textContent = 'exit 1';
-                        outputTarget.textContent = fallbackResult.output;
                         showToast(fallbackResult, fallbackResult.command);
                         console.error(error);
                     } finally {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.12
+- Stop automatic periodic replanning; plans are now rebuilt only on vehicle connect or explicit manual trigger
+- Make dashboard reset clear and stop charging without immediately rebuilding a fresh plan
+- Fix planner slot ranking so it can select the cheapest non-consecutive windows instead of drifting into consecutive runs
+- Only count the remaining portion of the current slot when planning from the current time
+- Add market price line overlay to the dashboard timeline
+
 ## 0.1.11
 - Fix dashboard artisan runner under Home Assistant ingress by switching it to relative JSON-based execution
 - Show a popup with command output and success or failure state when a dashboard artisan command finishes

@@ -73,7 +73,7 @@ test('strategy command can build a short test horizon plan', function () {
         'night_rate_starts_at' => '22:00',
     ]);
 
-    $start = now()->startOfMinute()->subMinutes(now()->minute % 15);
+    $start = now()->startOfMinute()->subMinutes(now()->minute % 15)->addMinutes(15);
 
     collect([
         [0, 0.08, 0.0],
@@ -215,4 +215,69 @@ test('strategy command supports one-off minimum soc and deadline overrides', fun
     expect($plan)->not->toBeNull();
     expect((float) $plan->minimum_energy_kwh)->toBe(8.0);
     expect($plan->deadline_at->format('H:i'))->toBe('06:00');
+});
+
+test('strategy command selects the cheapest non-consecutive slots when that is enough to meet the target', function () {
+    config()->set('charging.defaults.target_soc_percent', 75);
+    config()->set('charging.defaults.daily_minimum_soc_percent', 70);
+    config()->set('charging.defaults.charger_power_kw', 4);
+    config()->set('charging.defaults.grid_day_rate_per_kwh', 0.01);
+    config()->set('charging.defaults.grid_night_rate_per_kwh', 0.01);
+    config()->set('charging.defaults.grid_weekend_rate_per_kwh', 0.01);
+
+    ChargingSetting::query()->create([
+        'charger_name' => 'planner-test',
+        'ha_charge_control_entity_id' => 'switch.c26634_charge_control',
+        'ha_maximum_current_entity_id' => 'number.c26634_maximum_current',
+        'battery_capacity_kwh' => 40,
+        'current_soc_percent' => 70,
+        'daily_minimum_soc_percent' => 70,
+        'target_soc_percent' => 75,
+        'daily_minimum_deadline' => '07:00',
+        'charger_power_kw' => 4,
+        'charger_min_current_amps' => 6,
+        'charger_max_current_amps' => 16,
+        'charger_efficiency' => 1.0,
+        'grid_day_rate_per_kwh' => 0.01,
+        'grid_night_rate_per_kwh' => 0.01,
+        'grid_weekend_rate_per_kwh' => 0.01,
+        'day_rate_starts_at' => '07:00',
+        'night_rate_starts_at' => '22:00',
+    ]);
+
+    $start = now()->startOfMinute()->subMinutes(now()->minute % 15);
+
+    collect([
+        [0, 0.30],
+        [15, 0.05],
+        [30, 0.28],
+        [45, 0.04],
+        [60, 0.27],
+        [75, 0.03],
+    ])->each(function (array $row) use ($start): void {
+        PriceForecast::query()->create([
+            'starts_at' => $start->addMinutes($row[0]),
+            'ends_at' => $start->addMinutes($row[0] + 15),
+            'market_price_per_kwh' => $row[1],
+            'solar_surplus_kwh' => 0,
+            'source' => 'test',
+        ]);
+    });
+
+    $this->artisan('app:evaluate-charging-strategy --horizon-minutes=90')
+        ->assertSuccessful();
+
+    $selectedStarts = ChargingPlan::query()
+        ->with('slots')
+        ->latest('generated_at')
+        ->first()
+        ->slots
+        ->pluck('starts_at')
+        ->map(fn ($startsAt) => $startsAt->format('H:i'))
+        ->all();
+
+    expect($selectedStarts)->toBe([
+        $start->addMinutes(45)->format('H:i'),
+        $start->addMinutes(75)->format('H:i'),
+    ]);
 });

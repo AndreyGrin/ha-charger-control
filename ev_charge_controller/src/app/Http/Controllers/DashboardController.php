@@ -69,6 +69,14 @@ class DashboardController extends Controller
             ->get()
             ->reject(fn (ChargingSession $session) => data_get($session->meta, 'source') === 'seeded-demo')
             ->values();
+        $timelineWindowStart = $now->subHours(8)->startOfHour();
+        $timelineWindowEnd = $now->addHours(24)->startOfHour();
+        $timelineForecasts = PriceForecast::query()
+            ->where('ends_at', '>', $timelineWindowStart)
+            ->where('starts_at', '<', $timelineWindowEnd)
+            ->where(fn ($query) => $query->whereNull('source')->orWhere('source', '!=', 'seeded-demo'))
+            ->orderBy('starts_at')
+            ->get();
 
         $recentSessions = $realSessions->take(8);
         $historyTotals = (object) [
@@ -76,7 +84,7 @@ class DashboardController extends Controller
             'estimated_cost' => $realSessions->sum('estimated_cost'),
             'savings_amount' => $realSessions->sum('savings_amount'),
         ];
-        $timeline = $this->buildTimeline($displaySlots, $realSessions, $now);
+        $timeline = $this->buildTimeline($displaySlots, $realSessions, $timelineForecasts, $now);
 
         return view('dashboard', [
             'settings' => $settings,
@@ -92,8 +100,12 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function buildTimeline(Collection $displaySlots, Collection $sessions, CarbonImmutable $now): Collection
-    {
+    private function buildTimeline(
+        Collection $displaySlots,
+        Collection $sessions,
+        Collection $forecasts,
+        CarbonImmutable $now,
+    ): Collection {
         $windowStart = $now->subHours(8)->startOfHour();
         $windowEnd = $now->addHours(24)->startOfHour();
 
@@ -125,26 +137,36 @@ class DashboardController extends Controller
 
                 return $this->energyOverlap($slotStart, $slotEnd, $allocated, $binStart, $binEnd);
             });
+            $marketPrice = optional(
+                $forecasts->first(fn (PriceForecast $forecast) => $forecast->starts_at->lessThan($binEnd) && $forecast->ends_at->greaterThan($binStart))
+            )->market_price_per_kwh;
 
             $bins->push([
                 'starts_at' => $binStart,
                 'ends_at' => $binEnd,
                 'executed_kwh' => round($executed, 3),
                 'planned_kwh' => round($planned, 3),
+                'market_price_per_kwh' => $marketPrice !== null ? round((float) $marketPrice, 4) : null,
                 'is_past' => $binEnd->lessThanOrEqualTo($now),
                 'is_current' => $binStart->lessThanOrEqualTo($now) && $binEnd->greaterThan($now),
             ]);
         }
 
         $maxEnergy = max(1, (float) $bins->max(fn (array $bin) => max($bin['executed_kwh'], $bin['planned_kwh'])));
+        $minPrice = (float) ($bins->pluck('market_price_per_kwh')->filter(fn ($price) => $price !== null)->min() ?? 0);
+        $maxPrice = (float) ($bins->pluck('market_price_per_kwh')->filter(fn ($price) => $price !== null)->max() ?? 0);
+        $priceRange = max(0.0001, $maxPrice - $minPrice);
 
-        return $bins->map(function (array $bin) use ($maxEnergy) {
+        return $bins->map(function (array $bin) use ($maxEnergy, $minPrice, $priceRange) {
             $bin['executed_height'] = $bin['executed_kwh'] > 0
                 ? max(6, (int) round(($bin['executed_kwh'] / $maxEnergy) * 84))
                 : 0;
             $bin['planned_height'] = $bin['planned_kwh'] > 0
                 ? max(6, (int) round(($bin['planned_kwh'] / $maxEnergy) * 84))
                 : 0;
+            $bin['price_y'] = $bin['market_price_per_kwh'] !== null
+                ? round(12 + (1 - (($bin['market_price_per_kwh'] - $minPrice) / $priceRange)) * 76, 2)
+                : null;
 
             return $bin;
         });

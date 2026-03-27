@@ -73,11 +73,11 @@ class DashboardActionController extends Controller
 
     private function resetPlan(): string
     {
-        Artisan::call('app:reset-charging-plan', ['--replan' => true]);
+        Artisan::call('app:reset-charging-plan');
 
         $output = trim(Artisan::output());
 
-        return $output !== '' ? $output : 'Charging plan reset and rebuilt.';
+        return $output !== '' ? $output : 'Charging plan reset.';
     }
 
     private function stopCharging(
