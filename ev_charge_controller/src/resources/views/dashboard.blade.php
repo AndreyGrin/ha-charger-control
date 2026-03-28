@@ -82,9 +82,9 @@
                                     <input
                                         type="text"
                                         name="command"
-                                        value="{{ old('command', data_get(session('artisan_result'), 'command', 'app:evaluate-charging-strategy')) }}"
+                                        value="{{ old('command', data_get(session('artisan_result'), 'command', 'app:evaluate-charging-strategy --until=07:00 --minimum-soc=70 --minimum-deadline=06:00')) }}"
                                         class="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm text-white outline-none"
-                                        placeholder="app:evaluate-charging-strategy --until=07:00"
+                                        placeholder="app:evaluate-charging-strategy --until=07:00 --minimum-soc=70 --minimum-deadline=06:00"
                                     />
                                 </label>
                                 <button type="submit" class="rounded-2xl border border-white/15 bg-black/20 px-4 py-3 text-sm font-medium text-white transition duration-150 ease-in-out hover:bg-white/5">

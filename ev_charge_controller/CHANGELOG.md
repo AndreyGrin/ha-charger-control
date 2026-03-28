@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.13
+- Fix the dashboard artisan default command to include default params for better control
+
 ## 0.1.12
 - Stop automatic periodic replanning; plans are now rebuilt only on vehicle connect or explicit manual trigger
 - Make dashboard reset clear and stop charging without immediately rebuilding a fresh plan
